@@ -22,9 +22,16 @@ pub struct Limits {
     /// base64 never starts a line with `-`.
     pub max_boundary_lines: usize,
     /// Records in one report: aggregate `<record>`s, or TLS report policies
-    /// plus their failure details.
+    /// plus their failure details plus their `mx-host` names. The TLS count
+    /// is kept while the JSON is read, so a list past it is never built.
     pub max_records: usize,
-    /// Any one string field in a parsed report.
+    /// DKIM and SPF results in one aggregate report, counted across all its
+    /// records. A record carries one SPF result and one DKIM result per
+    /// signature, so four per record is already generous.
+    pub max_auth_results: usize,
+    /// Any one string field in a parsed report. Also the largest
+    /// `message/feedback-report` part of a failure report, and the longest
+    /// From address kept as [`Report::header_from`](crate::Report::header_from).
     pub max_field_bytes: usize,
     /// The reported message's header block in a failure report. Longer
     /// blocks are cut at a line break, not refused.
@@ -39,6 +46,7 @@ impl Limits {
         max_mime_parts: 64,
         max_boundary_lines: 256,
         max_records: 10_000,
+        max_auth_results: 40_000,
         max_field_bytes: 64 * 1024,
         max_ruf_header_bytes: 16 * 1024,
     };

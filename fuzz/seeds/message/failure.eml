@@ -1,0 +1,22 @@
+From: dmarc@reporter.example
+Content-Type: multipart/report; report-type=feedback-report; boundary="r"
+
+--r
+Content-Type: text/plain
+
+A message failed DMARC.
+--r
+Content-Type: message/feedback-report
+
+Feedback-Type: auth-failure
+Auth-Failure: dmarc
+Source-IP: 192.0.2.7
+Reported-Domain: example.com
+--r
+Content-Type: message/rfc822
+
+From: someone@example.com
+Subject: invoice
+
+body
+--r--

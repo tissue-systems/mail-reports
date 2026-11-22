@@ -1,0 +1,59 @@
+# cargo-fuzz targets. They need a nightly toolchain and `cargo install
+# cargo-fuzz`, and run from the repo root:
+#
+#   mkdir -p fuzz/corpus/message
+#   cargo +nightly fuzz run message fuzz/corpus/message fuzz/seeds/message -- -max_len=65536
+#
+# The same for `dmarc`, `tlsrpt` and `unpack`. `fuzz/seeds/` holds a real
+# report of each kind to start from; what the fuzzer finds goes to
+# `fuzz/corpus/` and crashes to `fuzz/artifacts/`, neither of them committed.
+
+[package]
+name = "mail-reports-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+mail-reports = { path = ".." }
+
+# Its own workspace, so the nightly-only build never touches the crate's
+# lockfile or its stable CI job.
+[workspace]
+
+[profile.release]
+debug = true
+# Arithmetic that overflows panics, so the fuzzer reports it.
+overflow-checks = true
+
+[[bin]]
+name = "message"
+path = "fuzz_targets/message.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "dmarc"
+path = "fuzz_targets/dmarc.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tlsrpt"
+path = "fuzz_targets/tlsrpt.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "unpack"
+path = "fuzz_targets/unpack.rs"
+test = false
+doc = false
+bench = false

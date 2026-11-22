@@ -12,6 +12,7 @@
 use mail_parser::{Message, PartKind};
 use serde::Serialize;
 
+use crate::limits::size;
 use crate::message::content_type;
 use crate::{InvalidReport, Limits};
 
@@ -63,6 +64,15 @@ pub(crate) fn parse(message: &Message<'_>, limits: &Limits) -> Result<(FailureRe
         }
     }
     let feedback = feedback.ok_or_else(|| InvalidReport::new("failure report has no message/feedback-report part"))?;
+    // A real feedback part is a dozen short lines. Each line becomes a
+    // field below, so the part is held to the size of one field.
+    if feedback.len() > limits.max_field_bytes {
+        return Err(format!(
+            "failure report's message/feedback-report part is longer than {}",
+            size(limits.max_field_bytes as u64)
+        )
+        .into());
+    }
     let headers = truncate_headers(&headers.unwrap_or_default(), limits.max_ruf_header_bytes);
     let fields = fields(&String::from_utf8_lossy(&feedback));
     let get = |name: &str| -> String {
@@ -104,8 +114,12 @@ pub(crate) fn parse(message: &Message<'_>, limits: &Limits) -> Result<(FailureRe
 }
 
 /// Everything before the first blank line, or all of it when there is none.
-/// The line break that ends the last header stays in.
+/// The line break that ends the last header stays in. Data that opens on a
+/// blank line has no header block: what follows is body.
 fn header_block(data: &[u8]) -> &[u8] {
+    if matches!(data, [b'\n', ..] | [b'\r', b'\n', ..]) {
+        return &[];
+    }
     let end = (0..data.len()).find(|&i| data[i] == b'\n' && matches!(data[i + 1..], [b'\n', ..] | [b'\r', b'\n', ..]));
     match end {
         Some(i) => &data[..=i],
@@ -162,12 +176,39 @@ fn from_domain(headers: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use quickcheck::quickcheck;
+
+    /// Random bytes almost never hold a line break, so these are drawn from
+    /// the few bytes that header parsing cares about.
+    fn headerish(seed: &[u8]) -> Vec<u8> {
+        seed.iter().map(|b| b"a: \r\n\n"[*b as usize % 6]).collect()
+    }
+
+    quickcheck! {
+        fn header_block_is_a_prefix_with_no_blank_line(seed: Vec<u8>) -> bool {
+            let data = headerish(&seed);
+            let block = header_block(&data);
+            data.starts_with(block)
+                && !block.starts_with(b"\n")
+                && !block.starts_with(b"\r\n")
+                && !block.windows(2).any(|w| w == b"\n\n")
+                && !block.windows(3).any(|w| w == b"\n\r\n")
+        }
+
+        fn truncated_headers_are_a_prefix_inside_the_cap(seed: Vec<u8>, max: u8) -> bool {
+            let data = headerish(&seed);
+            let kept = truncate_headers(&data, max as usize);
+            kept.len() <= max as usize && data.starts_with(kept.as_bytes())
+        }
+    }
 
     #[test]
     fn header_block_stops_at_blank_line() {
         assert_eq!(header_block(b"A: 1\r\nB: 2\r\n\r\nbody"), b"A: 1\r\nB: 2\r\n");
         assert_eq!(header_block(b"A: 1\nB: 2\n\nbody"), b"A: 1\nB: 2\n");
         assert_eq!(header_block(b"A: 1\r\n"), b"A: 1\r\n");
+        assert_eq!(header_block(b"\r\nbody\r\nmore"), b"");
+        assert_eq!(header_block(b"\nbody"), b"");
     }
 
     #[test]

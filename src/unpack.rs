@@ -55,7 +55,7 @@ pub fn unpack(data: &[u8], cap: u64) -> Result<Vec<u8>, UnpackError> {
 /// `cap` bytes is accepted and one byte more is refused without reading on.
 fn read_capped(reader: impl Read, cap: u64) -> Result<Vec<u8>, UnpackError> {
     let mut out = Vec::new();
-    reader.take(cap + 1).read_to_end(&mut out).map_err(|e| UnpackError::Corrupt(e.to_string()))?;
+    reader.take(cap.saturating_add(1)).read_to_end(&mut out).map_err(|e| UnpackError::Corrupt(e.to_string()))?;
     if out.len() as u64 > cap {
         return Err(UnpackError::TooLarge);
     }
