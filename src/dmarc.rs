@@ -6,8 +6,10 @@
 //! prefixes are ignored, only local names count. quick-xml never expands an
 //! entity a document declares: the five predefined ones and character
 //! references are resolved here, and any other reference fails the parse.
-//! The record cap is checked as each `<record>` opens and the deadline every
-//! 256 events, so neither waits for the end of the document.
+//! The record cap is checked as each `<record>` opens, the DKIM and SPF
+//! result cap as each result opens, and the deadline every 256 events, so
+//! none of them waits for the end of the document. Elements nested deeper
+//! than [`MAX_DEPTH`] fail the parse.
 
 use std::time::Instant;
 
@@ -105,6 +107,11 @@ pub struct SpfAuth {
     pub result: String,
 }
 
+/// How deep elements may nest. The deepest element in the schema is at level
+/// five (`feedback/record/row/policy_evaluated/reason`); the path of open
+/// elements is kept in memory, so it has to end somewhere.
+pub const MAX_DEPTH: usize = 32;
+
 /// Parses one aggregate report file, already unpacked. Strings that name a
 /// domain, a policy or a result are lowercased; the rest are kept as sent.
 ///
@@ -119,6 +126,7 @@ pub fn parse(xml: &[u8], limits: &Limits, deadline: Instant) -> Result<Aggregate
     let mut path: Vec<String> = Vec::new();
     let mut buf = String::new();
     let mut saw_feedback = false;
+    let mut auth_results = 0usize;
     let mut events = 0u32;
 
     loop {
@@ -129,14 +137,17 @@ pub fn parse(xml: &[u8], limits: &Limits, deadline: Instant) -> Result<Aggregate
         let event = reader.read_event().map_err(|e| InvalidReport::new(format!("report XML: {e}")))?;
         match event {
             Event::Start(e) => {
+                if path.len() >= MAX_DEPTH {
+                    return Err(format!("report XML is nested more than {MAX_DEPTH} levels deep").into());
+                }
                 path.push(element_name(&e));
                 buf.clear();
-                open(&path, &mut report, &mut saw_feedback, limits)?;
+                open(&path, &mut report, &mut saw_feedback, &mut auth_results, limits)?;
             }
             Event::Empty(e) => {
                 path.push(element_name(&e));
                 buf.clear();
-                open(&path, &mut report, &mut saw_feedback, limits)?;
+                open(&path, &mut report, &mut saw_feedback, &mut auth_results, limits)?;
                 close(&path, "", &mut report)?;
                 path.pop();
             }
@@ -207,6 +218,7 @@ fn open(
     path: &[String],
     report: &mut Aggregate,
     saw_feedback: &mut bool,
+    auth_results: &mut usize,
     limits: &Limits,
 ) -> Result<(), InvalidReport> {
     if path.len() == 1 && path[0] == "feedback" {
@@ -223,16 +235,26 @@ fn open(
         }
         "record/auth_results/dkim" => {
             if let Some(r) = report.records.last_mut() {
+                count_auth_result(auth_results, limits)?;
                 r.dkim.push(DkimAuth::default());
             }
         }
         "record/auth_results/spf" => {
             if let Some(r) = report.records.last_mut() {
+                count_auth_result(auth_results, limits)?;
                 r.spf.push(SpfAuth::default());
             }
         }
         _ => {}
     }
+    Ok(())
+}
+
+fn count_auth_result(seen: &mut usize, limits: &Limits) -> Result<(), InvalidReport> {
+    if *seen >= limits.max_auth_results {
+        return Err(format!("report has more than {} DKIM and SPF results", limits.max_auth_results).into());
+    }
+    *seen += 1;
     Ok(())
 }
 

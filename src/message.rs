@@ -91,6 +91,7 @@ pub(crate) fn parse_message(raw: &[u8], limits: &Limits, deadline: Instant) -> R
         .from()
         .and_then(|list| list.first())
         .and_then(|mailbox| mailbox.address())
+        .filter(|address| address.len() <= limits.max_field_bytes)
         .unwrap_or_default()
         .to_ascii_lowercase();
 

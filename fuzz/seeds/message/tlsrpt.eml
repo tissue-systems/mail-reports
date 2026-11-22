@@ -1,0 +1,39 @@
+From: tlsrpt-noreply@microsoft.com
+Content-Type: multipart/report; report-type=tlsrpt; boundary="b"
+
+--b
+Content-Type: application/tlsrpt+json
+
+{
+  "organization-name": "Microsoft Corporation",
+  "date-range": {
+    "start-datetime": "2026-11-16T00:00:00Z",
+    "end-datetime": "2026-11-16T23:59:59Z"
+  },
+  "contact-info": "tlsrpt-noreply@microsoft.com",
+  "report-id": "133771234567890123+example.com",
+  "policies": [
+    {
+      "policy": {
+        "policy-type": "sts",
+        "policy-string": ["version: STSv1", "mode: enforce", "mx: mx1.example.com", "max_age: 604800"],
+        "policy-domain": "example.com",
+        "mx-host": ["mx1.example.com"]
+      },
+      "summary": {
+        "total-successful-session-count": 211,
+        "total-failure-session-count": 3
+      },
+      "failure-details": [
+        {
+          "result-type": "certificate-expired",
+          "sending-mta-ip": "203.0.113.20",
+          "receiving-mx-hostname": "mx1.example.com",
+          "failed-session-count": 3
+        }
+      ]
+    }
+  ]
+}
+
+--b--
