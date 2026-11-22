@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 (unreleased)
+## 0.2.0 (2026-11-21)
 
 Hardening against reports built to cost far more memory than their size. A
 gzip of about 30 KB could make either parser allocate over a gigabyte.
