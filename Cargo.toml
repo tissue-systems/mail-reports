@@ -1,0 +1,31 @@
+[package]
+name = "mail-reports"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.98"
+authors = ["Tissue Systems, Inc. <oss@tissue.systems>"]
+license = "MIT OR Apache-2.0"
+description = "Parse DMARC aggregate, DMARC failure and SMTP TLS reports out of raw email, with caps on size, depth, count and time"
+repository = "https://github.com/tissue-systems/mail-reports"
+readme = "README.md"
+keywords = ["dmarc", "tls-rpt", "email", "rua", "ruf"]
+categories = ["email", "parser-implementations"]
+exclude = [".github/"]
+
+[dependencies]
+# MIME structure: finding the report part and decoding its transfer
+# encoding. 1.0 is what sets rust-version to 1.98.
+mail-parser = "1.0"
+# The aggregate report XML reader. It never expands an entity a document
+# declares, so there is no billion-laughs case to guard.
+quick-xml   = "0.42"
+# gzip attachments (`.xml.gz`, `application/tlsrpt+gzip`).
+flate2      = "1"
+# zip attachments. Reporters only use deflate, read through the flate2 above;
+# bzip2, zstd, AES and the writer stay out.
+zip         = { version = "9", default-features = false, features = ["deflate-flate2"] }
+serde       = { version = "1", features = ["derive"] }
+# TLS reports are JSON, and the field cap is checked on the serialised report.
+serde_json  = "1"
+# The TLS report date range arrives as RFC 3339.
+chrono      = { version = "0.4", default-features = false, features = ["std"] }

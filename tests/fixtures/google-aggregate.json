@@ -1,0 +1,33 @@
+{
+  "domain": "example.com",
+  "org_name": "google.com",
+  "org_email": "noreply-dmarc-support@google.com",
+  "report_id": "4478592302148612817",
+  "date_begin": 1794873600,
+  "date_end": 1794959999,
+  "policy": {"p": "none", "sp": "none", "pct": 100, "adkim": "r", "aspf": "r"},
+  "records": [
+    {
+      "source_ip": "198.51.100.7",
+      "count": 12,
+      "disposition": "none",
+      "dkim_aligned": true,
+      "spf_aligned": false,
+      "header_from": "example.com",
+      "envelope_from": "",
+      "dkim": [{"domain": "example.com", "selector": "s1", "result": "pass"}],
+      "spf": [{"domain": "bounce.example.net", "result": "fail"}]
+    },
+    {
+      "source_ip": "2001:db8::25",
+      "count": 1,
+      "disposition": "none",
+      "dkim_aligned": false,
+      "spf_aligned": false,
+      "header_from": "example.com",
+      "envelope_from": "",
+      "dkim": [],
+      "spf": [{"domain": "mail.example.org", "result": "softfail"}]
+    }
+  ]
+}
